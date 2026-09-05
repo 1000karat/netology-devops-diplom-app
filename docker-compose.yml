@@ -1,0 +1,9 @@
+services:
+  nginx:
+    container_name: netology-nginx
+    image: nginx:stable
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+    ports:
+      - 80:80
+    restart: always
