@@ -3,18 +3,23 @@ name: Docker Image CI
 on:
   push:
     branches: [ "main" ]
+    tags: 
+      - 'v*.*.*'
   pull_request:
     branches: [ "main" ]
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set version id: version 
+        run: | 
+          VERSION=${GITHUB_REF_NAME#v} 
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -25,17 +30,12 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:latest \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:${{ github.sha }} \
-            .
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:${{ steps.version.outputs.version }} .
 
       - name: Push Docker image
         run: |
           docker push \
-            ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:latest
-
-          docker push \
-            ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:${{ steps.version.outputs.version }}
 
       - name: Deploy to VM
         uses: appleboy/ssh-action@v1.2.0
@@ -44,7 +44,10 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:latest
+            VERSION=${{ steps.version.outputs.version }}
+            IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:$VERSION
+            
+            docker pull $IMAGE
 
             docker stop netology-nginx 2>/dev/null || true
             docker rm netology-nginx 2>/dev/null || true
@@ -53,6 +56,6 @@ jobs:
               --name netology-nginx \
               --restart always \
               -p 80:80 \
-              ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:latest
+              $IMAGE
 
             docker image prune -f
