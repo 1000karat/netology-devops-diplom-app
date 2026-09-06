@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: write
-  actions: write
 
 jobs:
   build:
@@ -23,20 +22,16 @@ jobs:
       - name: Set version
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            VERSION="0.0.0-${{ github.event.pull_request.number }}"
-          else
-            CURRENT_VERSION="${{ vars.APP_VERSION }}"
+          CURRENT_VERSION=$(cat VERSION)
 
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 
-            PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
 
-            VERSION="$MAJOR.$MINOR.$PATCH"
-          fi
+          echo "Current version: $CURRENT_VERSION"
+          echo "New version: $NEW_VERSION"
 
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Login to Docker Hub
         if: github.event_name == 'push'
@@ -81,10 +76,14 @@ jobs:
 
             docker image prune -f
 
-      - name: Update version
+      - name: Update VERSION
         if: success() && github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh variable set APP_VERSION \
-            --body "${{ steps.version.outputs.version }}"
+          echo "${{ steps.version.outputs.version }}" > VERSION
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add VERSION
+          git commit -m "chore: release ${{ steps.version.outputs.version }}"
+          git push
