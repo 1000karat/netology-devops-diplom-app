@@ -3,8 +3,6 @@ name: Docker Image CI
 on:
   push:
     branches: [ "main" ]
-    tags: 
-      - 'v*.*.*'
   pull_request:
     branches: [ "main" ]
 
@@ -43,7 +41,6 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg VERSION="${{ steps.version.outputs.version }}" \
             -t ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:${{ steps.version.outputs.version }} \
             .
 
