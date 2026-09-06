@@ -16,7 +16,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set version id: version 
+      - name: Set version 
+        id: version 
         run: | 
           VERSION=${GITHUB_REF_NAME#v} 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
