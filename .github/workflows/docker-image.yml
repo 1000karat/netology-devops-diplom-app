@@ -43,6 +43,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
+            --build-arg VERSION="${{ steps.version.outputs.version }}" \
             -t ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:${{ steps.version.outputs.version }} \
             .
 
