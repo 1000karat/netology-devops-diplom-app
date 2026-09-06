@@ -83,7 +83,7 @@ jobs:
 
           echo "$VERSION" > VERSION
 
-          sed -i -E "s/^version: [0-9]+\.[0-9]+\.[0-9]+$/version: ${VERSION}/" README.md
+          sed -i -E "s/^version: [0-9]+\.[0-9]+\.[0-9]+[[:space:]]*$/version: ${VERSION}/" README.md
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
