@@ -76,14 +76,20 @@ jobs:
 
             docker image prune -f
 
-      - name: Update VERSION
+      - name: Update version in repository
         if: success() && github.event_name == 'push'
         run: |
-          echo "${{ steps.version.outputs.version }}" > VERSION
+          VERSION="${{ steps.version.outputs.version }}"
+
+          echo "$VERSION" > VERSION
+
+          sed -i -E "s/^version: [0-9]+\.[0-9]+\.[0-9]+$/version: ${VERSION}/" README.md
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add VERSION
-          git commit -m "chore: release ${{ steps.version.outputs.version }}"
+          git add VERSION README.md
+
+          git commit -m "chore: release $VERSION [skip ci]"
+
           git push
