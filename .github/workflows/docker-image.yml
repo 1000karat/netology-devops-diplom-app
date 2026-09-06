@@ -16,13 +16,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set version 
-        id: version 
-        run: | 
-          VERSION=${GITHUB_REF_NAME#v} 
+      - name: Set version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            VERSION="0.0.0-${{ github.event.pull_request.number }}"
+          else
+            CURRENT_VERSION="${{ vars.APP_VERSION }}"
+
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+            PATCH=$((PATCH + 1))
+
+            VERSION="$MAJOR.$MINOR.$PATCH"
+          fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
 
       - name: Login to Docker Hub
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -31,24 +44,27 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:${{ steps.version.outputs.version }} .
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:${{ steps.version.outputs.version }} \
+            .
 
       - name: Push Docker image
+        if: github.event_name == 'push'
         run: |
           docker push \
             ${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:${{ steps.version.outputs.version }}
 
       - name: Deploy to VM
+        if: github.event_name == 'push'
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            VERSION=${{ steps.version.outputs.version }}
-            IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:$VERSION
-            
-            docker pull $IMAGE
+            VERSION="${{ steps.version.outputs.version }}"
+            IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/netology-nginx-app:${VERSION}"
+
+            docker pull "$IMAGE"
 
             docker stop netology-nginx 2>/dev/null || true
             docker rm netology-nginx 2>/dev/null || true
@@ -57,6 +73,14 @@ jobs:
               --name netology-nginx \
               --restart always \
               -p 80:80 \
-              $IMAGE
+              "$IMAGE"
 
             docker image prune -f
+
+      - name: Update version
+        if: success() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh variable set APP_VERSION \
+            --body "${{ steps.version.outputs.version }}"
